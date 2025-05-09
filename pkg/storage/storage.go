@@ -4,7 +4,8 @@ import "errors"
 
 // Common errors
 var (
-	ErrKeyNotFound = errors.New("key not found")
+	ErrKeyNotFound      = errors.New("key not found")
+	ErrKeyCannotBeEmpty = errors.New("key cannot be empty")
 )
 
 type Value struct {

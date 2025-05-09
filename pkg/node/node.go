@@ -1,11 +1,16 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
 
 	"github.com/subash-0044/beaver-vault/pkg/storage"
+	pb "github.com/subash-0044/beaver-vault/proto"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Config holds the configuration for a node
@@ -17,12 +22,13 @@ type Config struct {
 
 // Node represents a single node in the Beaver-Vault cluster
 type Node struct {
-	id       string
-	address  string
-	store    storage.Storage
-	mu       sync.RWMutex
-	listener net.Listener
-	running  bool
+	pb.UnimplementedKeyValueStoreServer
+	id         string
+	address    string
+	store      storage.Storage
+	mu         sync.RWMutex
+	grpcServer *grpc.Server
+	running    bool
 }
 
 // New creates a new node with the given configuration
@@ -53,17 +59,22 @@ func (n *Node) Start() error {
 		return fmt.Errorf("node already running")
 	}
 
-	// Start listening for connections
-	listener, err := net.Listen("tcp", n.address)
+	n.grpcServer = grpc.NewServer()
+	pb.RegisterKeyValueStoreServer(n.grpcServer, n)
+
+	lis, err := net.Listen("tcp", n.address)
 	if err != nil {
-		return fmt.Errorf("failed to start listener: %w", err)
+		return fmt.Errorf("failed to listen: %w", err)
 	}
-	n.listener = listener
-	n.running = true
 
 	// Start serving in a goroutine
-	go n.serve()
+	go func() {
+		if err := n.grpcServer.Serve(lis); err != nil {
+			fmt.Printf("failed to serve: %v\n", err)
+		}
+	}()
 
+	n.running = true
 	return nil
 }
 
@@ -76,14 +87,10 @@ func (n *Node) Stop() error {
 		return nil
 	}
 
-	// Close the listener
-	if n.listener != nil {
-		if err := n.listener.Close(); err != nil {
-			return fmt.Errorf("failed to close listener: %w", err)
-		}
+	if n.grpcServer != nil {
+		n.grpcServer.GracefulStop()
 	}
 
-	// Close the storage
 	if err := n.store.Close(); err != nil {
 		return fmt.Errorf("failed to close storage: %w", err)
 	}
@@ -92,58 +99,74 @@ func (n *Node) Stop() error {
 	return nil
 }
 
-// serve handles incoming connections
-func (n *Node) serve() {
-	for {
-		conn, err := n.listener.Accept()
-		if err != nil {
-			// Check if the listener was closed intentionally
-			if opErr, ok := err.(*net.OpError); ok && opErr.Op == "accept" {
-				return
-			}
-			// Log error and continue accepting connections
-			fmt.Printf("Error accepting connection: %v\n", err)
-			continue
-		}
-
-		// Handle connection in a goroutine
-		go n.handleConnection(conn)
+// Get handles get requests
+func (n *Node) Get(ctx context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
+	if len(req.Key) == 0 {
+		return nil, status.Error(codes.InvalidArgument, storage.ErrKeyCannotBeEmpty.Error())
 	}
-}
 
-// handleConnection processes a single client connection
-func (n *Node) handleConnection(conn net.Conn) {
-	defer conn.Close()
-	// TODO: Implement request handling protocol
-}
-
-// Get retrieves a value for the given key
-func (n *Node) Get(key []byte) ([]byte, error) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 
-	value, err := n.store.Get(key)
+	value, err := n.store.Get(req.Key)
 	if err != nil {
-		return nil, err
+		return &pb.GetResponse{
+			Found: false,
+			Error: err.Error(),
+		}, nil
 	}
+
 	if value == nil {
-		return nil, storage.ErrKeyNotFound
+		return &pb.GetResponse{
+			Found: false,
+			Error: "key not found",
+		}, nil
 	}
-	return value.Data, nil
+
+	return &pb.GetResponse{
+		Found: true,
+		Value: value.Data,
+	}, nil
 }
 
-// Put stores a value for the given key
-func (n *Node) Put(key, value []byte) error {
+// Put handles put requests
+func (n *Node) Put(ctx context.Context, req *pb.PutRequest) (*pb.PutResponse, error) {
+	if len(req.Key) == 0 {
+		return nil, status.Error(codes.InvalidArgument, storage.ErrKeyCannotBeEmpty.Error())
+	}
+
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	return n.store.Put(key, value)
+	if err := n.store.Put(req.Key, req.Value); err != nil {
+		return &pb.PutResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+
+	return &pb.PutResponse{
+		Success: true,
+	}, nil
 }
 
-// Delete removes a key-value pair
-func (n *Node) Delete(key []byte) error {
+// Delete handles delete requests
+func (n *Node) Delete(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
+	if len(req.Key) == 0 {
+		return nil, status.Error(codes.InvalidArgument, storage.ErrKeyCannotBeEmpty.Error())
+	}
+
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
-	return n.store.Delete(key)
+	if err := n.store.Delete(req.Key); err != nil {
+		return &pb.DeleteResponse{
+			Success: false,
+			Error:   err.Error(),
+		}, nil
+	}
+
+	return &pb.DeleteResponse{
+		Success: true,
+	}, nil
 }

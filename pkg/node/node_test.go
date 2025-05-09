@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/subash-0044/beaver-vault/pkg/storage"
+	pb "github.com/subash-0044/beaver-vault/proto"
+	"google.golang.org/grpc/status"
 )
 
 func TestNode(t *testing.T) {
@@ -32,18 +35,32 @@ func TestNode(t *testing.T) {
 		testKey := []byte("test-key")
 		testValue := []byte("test-value")
 
-		err = node.Put(testKey, testValue)
+		putResp, err := node.Put(context.Background(), &pb.PutRequest{
+			Key:   testKey,
+			Value: testValue,
+		})
 		require.NoError(t, err)
+		assert.True(t, putResp.Success)
 
-		value, err := node.Get(testKey)
+		getResp, err := node.Get(context.Background(), &pb.GetRequest{
+			Key: testKey,
+		})
 		require.NoError(t, err)
-		assert.Equal(t, testValue, value)
+		assert.True(t, getResp.Found)
+		assert.Equal(t, testValue, getResp.Value)
 
-		err = node.Delete(testKey)
+		delResp, err := node.Delete(context.Background(), &pb.DeleteRequest{
+			Key: testKey,
+		})
 		require.NoError(t, err)
+		assert.True(t, delResp.Success)
 
-		_, err = node.Get(testKey)
-		assert.ErrorIs(t, err, storage.ErrKeyNotFound)
+		getResp, err = node.Get(context.Background(), &pb.GetRequest{
+			Key: testKey,
+		})
+		require.NoError(t, err)
+		assert.False(t, getResp.Found)
+		assert.Equal(t, "key not found", getResp.Error)
 
 		require.NoError(t, node.Stop())
 	})
@@ -95,8 +112,12 @@ func TestNode(t *testing.T) {
 			for i := 0; i < numOperations; i++ {
 				key := []byte(fmt.Sprintf("key-%d", i))
 				value := []byte(fmt.Sprintf("value-%d", i))
-				err := node.Put(key, value)
+				resp, err := node.Put(context.Background(), &pb.PutRequest{
+					Key:   key,
+					Value: value,
+				})
 				require.NoError(t, err)
+				require.True(t, resp.Success)
 			}
 		}()
 
@@ -105,7 +126,9 @@ func TestNode(t *testing.T) {
 			defer wg.Done()
 			for i := 0; i < numOperations; i++ {
 				key := []byte(fmt.Sprintf("key-%d", i))
-				_, _ = node.Get(key) // Errors are expected as some keys might not exist yet
+				_, _ = node.Get(context.Background(), &pb.GetRequest{
+					Key: key,
+				}) // Errors are expected as some keys might not exist yet
 			}
 		}()
 
@@ -115,9 +138,53 @@ func TestNode(t *testing.T) {
 		// Verify final state
 		for i := 0; i < numOperations; i++ {
 			key := []byte(fmt.Sprintf("key-%d", i))
-			value, err := node.Get(key)
+			resp, err := node.Get(context.Background(), &pb.GetRequest{
+				Key: key,
+			})
 			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("value-%d", i)), value)
+			require.True(t, resp.Found)
+			assert.Equal(t, []byte(fmt.Sprintf("value-%d", i)), resp.Value)
 		}
+	})
+
+	t.Run("should handle empty key properly", func(t *testing.T) {
+		cfg := Config{
+			ID:      "node1",
+			Address: "localhost:8004",
+			DataDir: filepath.Join(tmpDir, "node4"),
+		}
+
+		node, err := New(cfg)
+		require.NoError(t, err)
+		require.NoError(t, node.Start())
+		defer node.Stop()
+
+		// Test Get with empty key
+		_, err = node.Get(context.Background(), &pb.GetRequest{
+			Key: []byte{},
+		})
+		assert.Error(t, err)
+		st, ok := status.FromError(err)
+		assert.True(t, ok)
+		assert.Contains(t, st.Message(), storage.ErrKeyCannotBeEmpty.Error())
+
+		// Test Put with empty key
+		_, err = node.Put(context.Background(), &pb.PutRequest{
+			Key:   []byte{},
+			Value: []byte("value"),
+		})
+		assert.Error(t, err)
+		st, ok = status.FromError(err)
+		assert.True(t, ok)
+		assert.Contains(t, st.Message(), storage.ErrKeyCannotBeEmpty.Error())
+
+		// Test Delete with empty key
+		_, err = node.Delete(context.Background(), &pb.DeleteRequest{
+			Key: []byte{},
+		})
+		assert.Error(t, err)
+		st, ok = status.FromError(err)
+		assert.True(t, ok)
+		assert.Contains(t, st.Message(), storage.ErrKeyCannotBeEmpty.Error())
 	})
 }
