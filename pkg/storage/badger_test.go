@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"os"
 	"testing"
 
@@ -66,31 +65,30 @@ func TestNewBadgerStore(t *testing.T) {
 func TestPut(t *testing.T) {
 	store, tmpDir := setupTestStore(t)
 	defer cleanupTestStore(t, store, tmpDir)
-	ctx := context.Background()
 
 	t.Run("should successfully put new value", func(t *testing.T) {
-		err := store.Put(ctx, []byte("key1"), []byte("value1"))
+		err := store.Put([]byte("key1"), []byte("value1"))
 		assert.NoError(t, err)
 	})
 
 	t.Run("should successfully update existing value", func(t *testing.T) {
 		key := []byte("key2")
 
-		err := store.Put(ctx, key, []byte("initial-value"))
+		err := store.Put(key, []byte("initial-value"))
 		require.NoError(t, err)
 
-		err = store.Put(ctx, key, []byte("updated-value"))
+		err = store.Put(key, []byte("updated-value"))
 		assert.NoError(t, err)
 	})
 
 	t.Run("should fail with empty key", func(t *testing.T) {
-		err := store.Put(ctx, []byte{}, []byte("value"))
+		err := store.Put([]byte{}, []byte("value"))
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Key cannot be empty")
 	})
 
 	t.Run("should handle empty value", func(t *testing.T) {
-		err := store.Put(ctx, []byte("empty-value-key"), []byte{})
+		err := store.Put([]byte("empty-value-key"), []byte{})
 		assert.NoError(t, err)
 	})
 }
@@ -98,29 +96,28 @@ func TestPut(t *testing.T) {
 func TestGet(t *testing.T) {
 	store, tmpDir := setupTestStore(t)
 	defer cleanupTestStore(t, store, tmpDir)
-	ctx := context.Background()
 
 	t.Run("should get existing value", func(t *testing.T) {
 		key := []byte("test-key")
 		value := []byte("test-value")
 
-		err := store.Put(ctx, key, value)
+		err := store.Put(key, value)
 		require.NoError(t, err)
 
-		result, err := store.Get(ctx, key)
+		result, err := store.Get(key)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, value, result.Data)
 	})
 
 	t.Run("should return nil for non-existent key", func(t *testing.T) {
-		result, err := store.Get(ctx, []byte("non-existent-key"))
+		result, err := store.Get([]byte("non-existent-key"))
 		assert.NoError(t, err)
 		assert.Nil(t, result)
 	})
 
 	t.Run("should fail with empty key", func(t *testing.T) {
-		result, err := store.Get(ctx, []byte{})
+		result, err := store.Get([]byte{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Key cannot be empty")
 		assert.Nil(t, result)
@@ -130,30 +127,29 @@ func TestGet(t *testing.T) {
 func TestDelete(t *testing.T) {
 	store, tmpDir := setupTestStore(t)
 	defer cleanupTestStore(t, store, tmpDir)
-	ctx := context.Background()
 
 	t.Run("should delete existing value", func(t *testing.T) {
 		key := []byte("delete-test-key")
 		value := []byte("delete-test-value")
 
-		err := store.Put(ctx, key, value)
+		err := store.Put(key, value)
 		require.NoError(t, err)
 
-		err = store.Delete(ctx, key)
+		err = store.Delete(key)
 		assert.NoError(t, err)
 
-		result, err := store.Get(ctx, key)
+		result, err := store.Get(key)
 		assert.NoError(t, err)
 		assert.Nil(t, result)
 	})
 
 	t.Run("should handle non-existent key", func(t *testing.T) {
-		err := store.Delete(ctx, []byte("non-existent-key"))
+		err := store.Delete([]byte("non-existent-key"))
 		assert.NoError(t, err)
 	})
 
 	t.Run("should fail with empty key", func(t *testing.T) {
-		err := store.Delete(ctx, []byte{})
+		err := store.Delete([]byte{})
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "Key cannot be empty")
 	})

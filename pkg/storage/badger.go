@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -32,7 +31,7 @@ func NewBadgerStore(opts Options) (*BadgerStore, error) {
 }
 
 // Get retrieves a value for a given key
-func (b *BadgerStore) Get(ctx context.Context, key []byte) (*Value, error) {
+func (b *BadgerStore) Get(key []byte) (*Value, error) {
 	var value *Value
 	err := b.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
@@ -56,7 +55,7 @@ func (b *BadgerStore) Get(ctx context.Context, key []byte) (*Value, error) {
 }
 
 // Put stores a value for a given key
-func (b *BadgerStore) Put(ctx context.Context, key, data []byte) error {
+func (b *BadgerStore) Put(key, data []byte) error {
 	err := b.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, data)
 	})
@@ -68,7 +67,7 @@ func (b *BadgerStore) Put(ctx context.Context, key, data []byte) error {
 }
 
 // Delete removes a key-value pair
-func (b *BadgerStore) Delete(ctx context.Context, key []byte) error {
+func (b *BadgerStore) Delete(key []byte) error {
 	err := b.db.Update(func(txn *badger.Txn) error {
 		return txn.Delete(key)
 	})

@@ -111,3 +111,6 @@ Client Request → Request Handler → Consensus Module → Storage Engine
 - Health checks via Serf
 - Metrics collection points
 - Operational commands for cluster management
+
+Design Decisions Taken while development:
+  - No need of context and cancellation in node and storage package, operations are usually fast and dont block for long, For node lifetime/shutdown, we already have explicit Start() and Stop() methods.

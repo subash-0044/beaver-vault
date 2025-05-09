@@ -1,17 +1,20 @@
 package storage
 
-import (
-	"context"
+import "errors"
+
+// Common errors
+var (
+	ErrKeyNotFound = errors.New("key not found")
 )
 
 type Value struct {
-	Data []byte 
+	Data []byte
 }
 
 type Storage interface {
-	Get(ctx context.Context, key []byte) (*Value, error)
-	Put(ctx context.Context, key, value []byte) error
-	Delete(ctx context.Context, key []byte) error
+	Get(key []byte) (*Value, error)
+	Put(key, value []byte) error
+	Delete(key []byte) error
 	Close() error
 }
 
