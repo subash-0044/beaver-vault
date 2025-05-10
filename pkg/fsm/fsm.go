@@ -71,6 +71,9 @@ func (f FSM) Apply(log *raft.Log) interface{} {
 				Data:  nil,
 			}
 		}
+	case raft.LogNoop, raft.LogAddPeerDeprecated, raft.LogRemovePeerDeprecated, raft.LogBarrier, raft.LogConfiguration:
+		// No operation for these log types
+		return nil
 	}
 
 	_, _ = fmt.Fprintf(os.Stderr, "not raft log command type\n")

@@ -30,9 +30,19 @@ func NewRaftNode(opts RaftNodeOptions) (*Raft, *raft.NetworkTransport, error) {
 	// Create Raft configuration
 	raftConfig := raft.DefaultConfig()
 	raftConfig.LocalID = raft.ServerID(opts.NodeID)
-	raftConfig.HeartbeatTimeout, _ = time.ParseDuration(opts.HeartbeatTimeout)
-	raftConfig.ElectionTimeout, _ = time.ParseDuration(opts.ElectionTimeout)
-	raftConfig.CommitTimeout, _ = time.ParseDuration(opts.CommitTimeout)
+	var err error
+	raftConfig.HeartbeatTimeout, err = time.ParseDuration(opts.HeartbeatTimeout)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid HeartbeatTimeout: %v", err)
+	}
+	raftConfig.ElectionTimeout, err = time.ParseDuration(opts.ElectionTimeout)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid ElectionTimeout: %v", err)
+	}
+	raftConfig.CommitTimeout, err = time.ParseDuration(opts.CommitTimeout)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid CommitTimeout: %v", err)
+	}
 
 	// Create Raft storage
 	raftDir := filepath.Join(opts.DataDir, "raft")

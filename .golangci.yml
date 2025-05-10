@@ -1,36 +1,157 @@
-version: 2
-
-linters-settings:
-  govet:
-    check-shadowing: true
-  gocyclo:
-    min-complexity: 15
-  dupl:
-    threshold: 100
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-
+version: "2"
+run:
+  concurrency: 4
+  modules-download-mode: readonly
+  issues-exit-code: 1
+  tests: true
 linters:
   enable:
-    - govet
-    - errcheck
-    - staticcheck
-    - ineffassign
-    - unused
+    - bodyclose
+    - copyloopvar
+    - dogsled
+    - dupl
+    - exhaustive
+    - funlen
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - goprintffuncname
     - misspell
+    - mnd
+    - nakedret
+    - noctx
+    - nolintlint
+    - revive
+    - rowserrcheck
+    - staticcheck
+    - unconvert
+    - unparam
+    - whitespace
+  disable:
+    - depguard
+  settings:
+    copyloopvar:
+      check-alias: true
+    errcheck:
+      check-type-assertions: true
 
-run:
-  timeout: 5m
-  skip-files:
-    - '.*_test\.go$'
-  skip-dirs:
-    - ^_test$
-    - ^test$
-    - ^tests$
-    - ^testing$
-  skip-dirs-use-default: true
-
+      check-blank: true
+    goconst:
+      min-len: 3
+      min-occurrences: 2
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+      disable-all: false
+      settings:
+        printf:
+          funcs:
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    lll:
+      line-length: 160
+    nakedret:
+      max-func-lines: 10
+    revive:
+      confidence: 0.8
+      severity: warning
+      rules:
+        - name: atomic
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: if-return
+        - name: increment-decrement
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+        - name: context-as-argument
+        - name: cyclomatic
+          arguments:
+            - 7
+        - name: empty-block
+        - name: add-constant
+        - name: empty-lines
+        - name: cognitive-complexity
+          arguments:
+            - 10
+        - name: line-length-limit
+          arguments:
+            - 160
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - dupl
+          - exhaustivestruct
+          - fieldalignment
+          - funlen
+          - paralleltest
+          - scopelint
+          - testpackage
+        path: test
+    paths:
+      - /*/*mock*.go
+      - /*/*test.go
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  exclude-files:
-    - '.*_test\.go$'
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: true
+  new-from-rev: origin/master
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    gci:
+      sections:
+        - prefix(github.com/evilmartians/lefthook)
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes:
+        - github.com/subash-0044/beaver-vault/
+  exclusions:
+    generated: lax
+    paths:
+      - /*/*mock*.go
+      - /*/*test.go
+
+
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+      print-linter-name: true

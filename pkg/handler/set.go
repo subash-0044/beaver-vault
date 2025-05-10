@@ -20,7 +20,7 @@ type RequestStore struct {
 // Store handles saving data to the Raft cluster.
 // It invokes raft.Apply to store the data across the cluster with acknowledgment from a quorum.
 // This operation must be performed on the Raft leader.
-func (h Handler) Store(ctx context.Context, form RequestStore) error {
+func (h Handler) Store(_ context.Context, form RequestStore) error {
 	form.Key = strings.TrimSpace(form.Key)
 	if form.Key == "" {
 		return fmt.Errorf("key is empty")
