@@ -1,116 +1,101 @@
-# Beaver-Vault: Distributed Key-Value Store Design Document
+# Beaver-Vault Design Document
 
-## 1. System Overview
-Beaver-Vault is a distributed key-value store designed for high scalability, strong consistency, and fault tolerance. The system employs a peer-to-peer architecture where each node can serve both read and write requests while participating in cluster consensus.
+## What is Beaver-Vault?
+Beaver-Vault is a distributed key-value store written in Go. It's designed to store data across multiple computers, making the data safe and reliable.
 
-## 2. Architecture Components
+## Main Components
 
-### 2.1 Node Architecture
-Each node in the system consists of the following components:
-- **Storage Engine**: Local key-value storage implementation
-- **Consensus Module**: Raft-based distributed consensus
-- **Network Layer**: gRPC-based communication
-- **Membership Manager**: Serf-based cluster membership
-- **Request Handler**: Client request processing
+### 1. Storage (BadgerDB)
+- Stores data on local computer
+- Optimized for SSD performance
+- Stores data in JSON format
 
-### 2.2 Data Flow
-```
-Client Request → Request Handler → Consensus Module → Storage Engine
-                                ↓
-                          Network Layer
-                                ↓
-                    Other Cluster Nodes
-```
+### 2. Consensus (Raft)
+- Keeps multiple servers in sync
+- Uses leader-follower system
+- Maintains data consistency
+- Handles automatic recovery during node failures
 
-## 3. Key Design Decisions
+### 3. API Server (Gin)
+- Provides HTTP API
+- Handles client requests
+- Provides simple UI for monitoring
 
-### 3.1 Consensus Protocol (Raft)
-- **Why Raft?**
-  - Simple to understand and implement
-  - Strong leader-based approach
-  - Built-in leader election and log replication
-  - Proven in production systems
-- **Implementation**: Using HashiCorp's Raft library
+### 4. Node Management
+- Ability to add new nodes to cluster
+- Ability to remove existing nodes
+- Node status monitoring
 
-### 3.2 Node Discovery and Membership (Serf)
-- **Why Serf?**
-  - Efficient gossip protocol
-  - Automatic node failure detection
-  - Low bandwidth overhead
-  - Scalable membership management
-- **Implementation**: Using HashiCorp's Serf library
+## How it Works
 
-### 3.3 Communication Protocol (gRPC)
-- **Why gRPC?**
-  - High performance bi-directional streaming
-  - Strong typing with Protocol Buffers
-  - Built-in load balancing and service discovery
-  - Excellent support for Go
+1. Client Request:
+   - Client can send request to any node
+   - Request reaches the leader node
 
-### 3.4 Data Partitioning
-- Using Consistent Hashing
-- Partition rebalancing on node changes
-- Handles node addition and removal seamlessly
+2. Data Storage:
+   - Leader node stores the data
+   - Data automatically syncs to other nodes
+   - Data consistency is maintained
 
-### 3.5 Storage Engine
-- **Why BadgerDB?**: 
-    - Pure Go implementation
-    - Optimized for SSDs
-    - Excellent performance for both point lookups and range scans
-    - Built-in support for transactions and versioning
-    - LSM(Log-Structured Merge-tree) tree-based architecture for better write performance
-    - Compression support for reduced storage footprint
-  
-- **Storage Layout**:
-  ```
-  /data
-    /raft              # Raft consensus logs and snapshots
-      /logs
-      /snapshots
-    /keyvalue         # Actual key-value data store
-    /metadata         # Cluster metadata and configuration
-  ```
+3. Node Failure:
+   - If a node fails, system recovers automatically
+   - New leader is selected
+   - No data loss occurs
 
-## 4. Consistency Model
-- Strong consistency through Raft consensus
-- Write operations require majority agreement
-- Read operations can be configured for strong or eventual consistency
+## Features
 
-## 5. Fault Tolerance
-### 5.1 Node Failures
-- Automatic leader election via Raft
-- Data replication across multiple nodes
-- Configurable replication factor
+1. High Availability:
+   - Data is stored on multiple nodes
+   - System keeps running even if nodes fail
 
-### 5.2 Network Partitions
-- Partition tolerance through Raft
-- Minority partitions become read-only
-- Automatic recovery when partition heals
+2. Strong Consistency:
+   - Data remains same on all nodes
+   - Write operations go through leader
 
-## 6. Scalability Features
-- Horizontal scaling through node addition
-- Dynamic partition rebalancing
-- Read scalability through replicas
-- Write scalability through partitioning
+3. Easy to Use:
+   - Simple HTTP API
+   - Web UI for monitoring
+   - Easy node management
 
-## 7. Performance Considerations
-### 7.1 Write Path
-1. Client sends write request
-2. Leader node receives request
-3. Raft consensus process
-4. Commit to storage engine
-5. Acknowledge to client
+4. Scalable:
+   - Can easily add new nodes
+   - Performance improves automatically
 
-### 7.2 Read Path
-1. Client sends read request
-2. Node checks if it has the data
-3. If consistent read: verify leadership
-4. Return data to client
+## Technical Details
 
-## 8. Monitoring and Operations
-- Health checks via Serf
-- Metrics collection points
-- Operational commands for cluster management
+1. Storage:
+   - BadgerDB for local storage
+   - JSON format for data
+   - Fast read/write operations
 
-Design Decisions Taken while development:
-  - No need of context and cancellation in node and storage package, operations are usually fast and dont block for long, For node lifetime/shutdown, we already have explicit Start() and Stop() methods.
+2. Network:
+   - TCP for node communication
+   - HTTP for client requests
+   - Raft protocol for consensus
+
+3. Configuration:
+   - YAML config file
+   - Command line options
+   - Environment variables
+
+## Usage
+
+1. Start Node:
+   ```bash
+   ./server -node-id node1 -http-port 8000 -raft-port 7000
+   ```
+
+2. Add Node:
+   ```bash
+   curl -X POST http://localhost:8000/api/v1/raft/join -d '{"NodeID": "node2", "RaftAddress": "localhost:7001"}'
+   ```
+
+3. Store Data:
+   ```bash
+   curl -X PUT http://localhost:8000/api/v1/kv/mykey -d '"myvalue"'
+   ```
+
+4. Get Data:
+   ```bash
+   curl http://localhost:8000/api/v1/kv/mykey
+   ```
