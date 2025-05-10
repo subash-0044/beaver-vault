@@ -39,7 +39,7 @@ func setupTestFSM(t *testing.T) (*FSM, *badger.DB, string) {
 
 func TestNew(t *testing.T) {
 	fsm, db, _ := setupTestFSM(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	assert.NotNil(t, fsm)
 	assert.NotNil(t, fsm.parser)
@@ -47,7 +47,7 @@ func TestNew(t *testing.T) {
 
 func TestFSM_Apply(t *testing.T) {
 	fsm, db, _ := setupTestFSM(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	tests := []struct {
 		name     string
@@ -142,7 +142,7 @@ func TestFSM_Apply(t *testing.T) {
 
 func TestFSM_Snapshot(t *testing.T) {
 	fsm, db, _ := setupTestFSM(t)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Take snapshot
 	snapshot, err := fsm.Snapshot()

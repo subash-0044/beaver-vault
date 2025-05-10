@@ -37,7 +37,11 @@ func TestNewBadgerStore(t *testing.T) {
 	t.Run("should create new store with valid options", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "badger-test-*")
 		require.NoError(t, err)
-		defer os.RemoveAll(tmpDir)
+		defer func() {
+			if err := os.RemoveAll(tmpDir); err != nil {
+				t.Errorf("Failed to remove temp directory: %v", err)
+			}
+		}()
 
 		opts := Options{
 			Dir:             tmpDir,

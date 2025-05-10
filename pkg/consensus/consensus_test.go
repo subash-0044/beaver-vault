@@ -2,7 +2,6 @@ package consensus
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,7 +16,7 @@ import (
 // setupTestRaft creates a new Raft node for testing
 func setupTestRaft(t *testing.T, nodeID string) (*Raft, string, raft.ServerAddress) {
 	// Create a temporary directory for Raft data
-	tmpDir, err := ioutil.TempDir("", "raft-test-"+nodeID)
+	tmpDir, err := os.MkdirTemp("", "raft-test-"+nodeID)
 	assert.NoError(t, err)
 
 	// Create BadgerDB for FSM
@@ -75,7 +74,7 @@ func setupTestRaft(t *testing.T, nodeID string) (*Raft, string, raft.ServerAddre
 func TestRaftWithRealNodes(t *testing.T) {
 	// Create leader node
 	leader, leaderDir, _ := setupTestRaft(t, "node1")
-	defer os.RemoveAll(leaderDir)
+	defer func() { _ = os.RemoveAll(leaderDir) }()
 
 	// Wait for leader to be elected
 	timeout := time.Now().Add(3 * time.Second)
@@ -95,7 +94,7 @@ func TestRaftWithRealNodes(t *testing.T) {
 
 	// Create follower node
 	follower, followerDir, followerAddr := setupTestRaft(t, "node2")
-	defer os.RemoveAll(followerDir)
+	defer func() { _ = os.RemoveAll(followerDir) }()
 
 	// Join follower to leader
 	req := RequestJoin{
@@ -199,7 +198,7 @@ func TestRaftWithRealNodes(t *testing.T) {
 func TestRaftLeaderDrop(t *testing.T) {
 	// Create initial leader node
 	leader, leaderDir, _ := setupTestRaft(t, "node1")
-	defer os.RemoveAll(leaderDir)
+	defer func() { _ = os.RemoveAll(leaderDir) }()
 
 	// Wait for leader to be elected
 	timeout := time.Now().Add(3 * time.Second)
@@ -213,9 +212,9 @@ func TestRaftLeaderDrop(t *testing.T) {
 
 	// Create two follower nodes
 	follower1, follower1Dir, follower1Addr := setupTestRaft(t, "node2")
-	defer os.RemoveAll(follower1Dir)
+	defer func() { _ = os.RemoveAll(follower1Dir) }()
 	follower2, follower2Dir, follower2Addr := setupTestRaft(t, "node3")
-	defer os.RemoveAll(follower2Dir)
+	defer func() { _ = os.RemoveAll(follower2Dir) }()
 
 	// Join both followers to the cluster
 	req1 := RequestJoin{

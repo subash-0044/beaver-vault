@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -17,7 +16,7 @@ import (
 // setupTestRaft creates a new Raft node for testing
 func setupTestRaft(t *testing.T, nodeID string) (*raft.Raft, *badger.DB, string, raft.ServerAddress) {
 	// Create a temporary directory for Raft data
-	tmpDir, err := ioutil.TempDir("", "raft-test-"+nodeID)
+	tmpDir, err := os.MkdirTemp("", "raft-test-"+nodeID)
 	assert.NoError(t, err)
 
 	// Create BadgerDB for FSM
@@ -72,8 +71,12 @@ func setupTestRaft(t *testing.T, nodeID string) (*raft.Raft, *badger.DB, string,
 func TestHandlerWithRealRaft(t *testing.T) {
 	// Create leader node
 	raftNode, db, tmpDir, _ := setupTestRaft(t, "node1")
-	defer os.RemoveAll(tmpDir)
-	defer db.Close()
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Errorf("Failed to remove temp directory: %v", err)
+		}
+	}()
+	defer func() { _ = db.Close() }()
 
 	// Wait for leader to be elected
 	timeout := time.Now().Add(3 * time.Second)
@@ -129,8 +132,12 @@ func TestHandlerWithRealRaft(t *testing.T) {
 	// Test operations with follower
 	t.Run("Follower Operations", func(t *testing.T) {
 		followerRaft, followerDB, followerDir, followerAddr := setupTestRaft(t, "node2")
-		defer os.RemoveAll(followerDir)
-		defer followerDB.Close()
+		defer func() {
+			if err := os.RemoveAll(followerDir); err != nil {
+				t.Errorf("Failed to remove follower temp directory: %v", err)
+			}
+		}()
+		defer func() { _ = followerDB.Close() }()
 
 		// Join follower to cluster
 		future := raftNode.AddVoter(

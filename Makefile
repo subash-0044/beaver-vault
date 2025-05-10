@@ -11,6 +11,11 @@ deps:
 	$(GOMOD) download
 	$(GOMOD) verify
 
+# Run linter
+.PHONY: lint
+lint:
+	golangci-lint run --timeout=5m
+
 # Run tests
 .PHONY: test
 test:
@@ -43,4 +48,4 @@ setup: deps
 
 # Default target
 .PHONY: all
-all: setup test build 
+all: setup lint test build 

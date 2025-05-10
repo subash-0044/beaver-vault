@@ -1,0 +1,36 @@
+version: 2
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - misspell
+
+run:
+  timeout: 5m
+  skip-files:
+    - '.*_test\.go$'
+  skip-dirs:
+    - ^_test$
+    - ^test$
+    - ^tests$
+    - ^testing$
+  skip-dirs-use-default: true
+
+issues:
+  exclude-files:
+    - '.*_test\.go$'

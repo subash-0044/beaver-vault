@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,7 +20,7 @@ import (
 )
 
 func setupTestServer(t *testing.T) (*Server, string, func()) {
-	tmpDir, err := ioutil.TempDir("", "raft-test-server")
+	tmpDir, err := os.MkdirTemp("", "raft-test-server")
 	assert.NoError(t, err)
 
 	badgerOpts := badger.DefaultOptions(filepath.Join(tmpDir, "badger"))
