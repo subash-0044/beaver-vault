@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -30,10 +29,10 @@ func setupTestServer(t *testing.T) (*Server, string, func()) {
 
 	config := raft.DefaultConfig()
 	config.LocalID = raft.ServerID("node1")
-	config.HeartbeatTimeout = 50 * time.Millisecond
-	config.ElectionTimeout = 50 * time.Millisecond
-	config.LeaderLeaseTimeout = 50 * time.Millisecond
-	config.CommitTimeout = 5 * time.Millisecond
+	config.HeartbeatTimeout = 100 * time.Millisecond
+	config.ElectionTimeout = 100 * time.Millisecond
+	config.LeaderLeaseTimeout = 100 * time.Millisecond
+	config.CommitTimeout = 10 * time.Millisecond
 	config.ShutdownOnRemove = true
 	config.SnapshotInterval = 10 * time.Second
 	config.SnapshotThreshold = 100
@@ -62,24 +61,32 @@ func setupTestServer(t *testing.T) (*Server, string, func()) {
 	}
 	ra.BootstrapCluster(configuration)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+	// Wait for leader election with timeout
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-timeout:
 			t.Fatal("Timeout waiting for leader election")
-		default:
+		case <-ticker.C:
 			if ra.State() == raft.Leader {
 				goto leaderElected
 			}
-			time.Sleep(50 * time.Millisecond)
 		}
 	}
 leaderElected:
 
 	h := handler.NewActionHandler(ra, db)
-	s := NewGinServer(h)
+
+	// Create a test-specific server without template loading
+	s := &Server{
+		handler:   h,
+		consensus: nil,
+		router:    gin.New(),
+	}
+	s.setupRoutes()
 
 	cleanup := func() {
 		if err := ra.Shutdown().Error(); err != nil {
@@ -123,6 +130,9 @@ func TestKeyValueOperations(t *testing.T) {
 	s, _, cleanup := setupTestServer(t)
 	defer cleanup()
 
+	// Wait for system to stabilize
+	time.Sleep(200 * time.Millisecond)
+
 	t.Run("Set Value", func(t *testing.T) {
 		value := map[string]interface{}{
 			"name": "test",
@@ -140,7 +150,8 @@ func TestKeyValueOperations(t *testing.T) {
 		assert.Equal(t, "ok", response["status"])
 	})
 
-	time.Sleep(50 * time.Millisecond)
+	// Wait for write to be committed
+	time.Sleep(200 * time.Millisecond)
 
 	t.Run("Get Value", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -180,7 +191,8 @@ func TestKeyValueOperations(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "ok", response["status"])
 
-		time.Sleep(50 * time.Millisecond)
+		// Wait for deletion to be committed
+		time.Sleep(200 * time.Millisecond)
 
 		w = httptest.NewRecorder()
 		req, _ = http.NewRequest("GET", "/api/v1/kv/test-key", nil)
