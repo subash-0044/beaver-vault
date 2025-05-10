@@ -1,0 +1,16 @@
+server:
+  host: "localhost"
+  port: 8000
+
+raft:
+  nodeId: "node1"
+  host: "localhost"
+  port: 7000
+  bootstrap: true
+  heartbeatTimeout: "1s"
+  electionTimeout: "1s"
+  commitTimeout: "50ms"
+  maxSnapshots: 3
+
+data:
+  directory: "data" 
