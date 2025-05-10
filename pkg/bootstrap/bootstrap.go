@@ -8,6 +8,7 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/hashicorp/raft"
+
 	"github.com/subash-0044/beaver-vault/pkg/config"
 	"github.com/subash-0044/beaver-vault/pkg/consensus"
 	"github.com/subash-0044/beaver-vault/pkg/handler"

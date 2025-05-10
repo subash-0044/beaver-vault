@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/subash-0044/beaver-vault/pkg/handler"
 )
 
@@ -74,7 +75,8 @@ func (s *Server) handleSet(c *gin.Context) {
 		Value: value,
 	})
 	if err != nil {
-		if err.Error() == "not the leader" {
+		const errNotLeader = "not the leader"
+		if err.Error() == errNotLeader {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "not the leader"})
 			return
 		}
@@ -90,7 +92,8 @@ func (s *Server) handleDelete(c *gin.Context) {
 	key := c.Param("key")
 	err := s.handler.Delete(key)
 	if err != nil {
-		if err.Error() == "not the leader" {
+		const errNotLeader = "not the leader"
+		if err.Error() == errNotLeader {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"error": "not the leader"})
 			return
 		}

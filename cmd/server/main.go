@@ -30,6 +30,6 @@ func main() {
 	log.Printf("Starting server on %s", cfg.Server.GetHTTPAddress())
 	if err := components.Server.Run(cfg.Server.GetHTTPAddress()); err != nil {
 		defer components.Cleanup()
-		log.Fatalf("Server failed: %v", err)
+		log.Fatalf("Server failed: %v", err) //nolint:gocritic
 	}
 }

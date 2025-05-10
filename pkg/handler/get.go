@@ -18,7 +18,9 @@ func (h Handler) Get(key string) (any, error) {
 
 	txn := h.db.NewTransaction(false)
 	defer func() {
-		_ = txn.Commit()
+		if err := txn.Commit(); err != nil && err != badger.ErrTxnTooBig {
+			fmt.Printf("error committing transaction: %v\n", err)
+		}
 	}()
 
 	item, err := txn.Get([]byte(key))

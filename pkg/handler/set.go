@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+
 	"github.com/subash-0044/beaver-vault/pkg/fsm"
 )
 

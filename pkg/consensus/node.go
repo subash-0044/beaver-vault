@@ -8,6 +8,7 @@ import (
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/hashicorp/raft"
+
 	"github.com/subash-0044/beaver-vault/pkg/fsm"
 )
 
@@ -46,8 +47,8 @@ func NewRaftNode(opts RaftNodeOptions) (*Raft, *raft.NetworkTransport, error) {
 
 	// Create Raft storage
 	raftDir := filepath.Join(opts.DataDir, "raft")
-	if err := os.MkdirAll(raftDir, 0755); err != nil {
-		return nil, nil, fmt.Errorf("failed to create Raft directory: %v", err)
+	if mkdirErr := os.MkdirAll(raftDir, 0755); mkdirErr != nil {
+		return nil, nil, fmt.Errorf("failed to create Raft directory: %v", mkdirErr)
 	}
 
 	logStore := raft.NewInmemStore()
