@@ -11,12 +11,30 @@ import (
 func main() {
 	// Parse command line flags
 	configPath := flag.String("config", "config/config.yaml", "path to config file")
+	nodeID := flag.String("node-id", "", "node ID for this instance")
+	httpPort := flag.Int("http-port", 0, "HTTP port for this instance")
+	raftPort := flag.Int("raft-port", 0, "Raft port for this instance")
+	raftHost := flag.String("raft-host", "", "Raft host for this instance")
 	flag.Parse()
 
 	// Load configuration
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Override config values if provided via command line
+	if *nodeID != "" {
+		cfg.Raft.NodeID = *nodeID
+	}
+	if *httpPort != 0 {
+		cfg.Server.Port = *httpPort
+	}
+	if *raftPort != 0 {
+		cfg.Raft.Port = *raftPort
+	}
+	if *raftHost != "" {
+		cfg.Raft.Host = *raftHost
 	}
 
 	// Initialize server components

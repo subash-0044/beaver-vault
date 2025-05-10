@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beaver-Vault Distributed KV UI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; background: #f7f7f7; }
+        .header { background: #222; color: #fff; padding: 20px 0; text-align: center; }
+        .container { max-width: 700px; margin: 30px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 30px; }
+        h1 { margin-top: 0; }
+        .stats-bar { 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 15px; 
+            justify-content: center; 
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .stat { 
+            background: white; 
+            border-radius: 10px; 
+            padding: 15px 20px; 
+            min-width: 130px; 
+            text-align: center; 
+            font-size: 15px;
+            position: relative;
+            cursor: help;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #eee;
+        }
+        .stat:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .stat span {
+            display: block;
+            margin-top: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .stat .tooltip {
+            visibility: hidden;
+            width: 280px;
+            background-color: #2c3e50;
+            color: #fff;
+            text-align: left;
+            border-radius: 8px;
+            padding: 12px 15px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 13px;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .stat:hover .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+        .stat .tooltip::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 6px;
+            border-style: solid;
+            border-color: #2c3e50 transparent transparent transparent;
+        }
+        .section { margin-bottom: 32px; }
+        .section-title { font-size: 1.2em; margin-bottom: 10px; color: #333; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #444; }
+        input[type="text"], textarea { width: 100%; padding: 8px; box-sizing: border-box; border-radius: 4px; border: 1px solid #ccc; }
+        textarea { resize: vertical; min-height: 40px; font-family: monospace; }
+        button { padding: 9px 16px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; }
+        button:hover { background-color: #388e3c; }
+        #result { margin-top: 20px; padding: 12px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 4px; min-height: 32px; white-space: pre-wrap; }
+        .inline-form { display: flex; gap: 10px; align-items: flex-end; }
+        .inline-form .form-group { flex: 1; margin-bottom: 0; }
+        .membership-list { background: #f1f1f1; border-radius: 6px; padding: 10px; margin-top: 10px; font-size: 14px; }
+        .error { color: #b71c1c; }
+        .success { color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Beaver-Vault Distributed Key-Value Store</h1>
+        <div id="nodeInfo">Role: <span id="nodeRole">-</span></div>
+    </div>
+    <div class="container">
+        <div class="stats-bar" id="clusterStats">
+            <div class="stat">State<span id="state">-</span>
+                <span class="tooltip">Current role of the node in the cluster. Can be "leader" (handles client requests), "follower" (replicates data), or "candidate" (during election).</span>
+            </div>
+            <div class="stat">Term<span id="term">-</span>
+                <span class="tooltip">Monotonically increasing number identifying a leader's term. Increases with each new leader election. Helps maintain consistency and detect stale leaders.</span>
+            </div>
+            <div class="stat">Peers<span id="numPeers">-</span>
+                <span class="tooltip">Number of other nodes in the cluster (excluding current node). Used to determine if a majority exists for leader election.</span>
+            </div>
+            <div class="stat">FSM Pending<span id="fsmPending">-</span>
+                <span class="tooltip">Number of commands waiting to be applied to the state machine. High numbers might indicate performance issues.</span>
+            </div>
+            <div class="stat">Last Log<span id="lastLogIndex">-</span>
+                <span class="tooltip">Index of the last log entry. Shows how many operations have been recorded. Used to ensure log consistency between nodes.</span>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Node Management</div>
+            <div class="inline-form">
+                <div class="form-group">
+                    <label for="joinNodeId">Join Node ID</label>
+                    <input type="text" id="joinNodeId" placeholder="e.g., node2">
+                </div>
+                <div class="form-group">
+                    <label for="joinRaftAddress">Raft Address</label>
+                    <input type="text" id="joinRaftAddress" placeholder="e.g., 127.0.0.1:9002">
+                </div>
+                <button onclick="joinNode()">Join</button>
+            </div>
+            <div class="inline-form" style="margin-top:10px;">
+                <div class="form-group">
+                    <label for="dropNodeId">Drop Node ID</label>
+                    <input type="text" id="dropNodeId" placeholder="e.g., node2">
+                </div>
+                <button onclick="dropNode()">Drop</button>
+            </div>
+            <div style="margin-top:18px;">
+                <button onclick="getMembership()">Refresh Membership</button>
+                <div class="membership-list" id="membershipList">Loading...</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Key-Value Operations</div>
+            <div class="form-group">
+                <label for="getKey">Get Key</label>
+                <div class="inline-form">
+                    <input type="text" id="getKey" placeholder="e.g., myKey">
+                    <button onclick="getValue()">Get</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="setKey">Set Key</label>
+                <input type="text" id="setKey" placeholder="e.g., myKey">
+            </div>
+            <div class="form-group">
+                <label for="setValue">Value (JSON supported)</label>
+                <textarea id="setValue" placeholder='e.g., "myValue" or { "foo": 123 }'></textarea>
+            </div>
+            <button onclick="setValue()">Set</button>
+            <div class="form-group" style="margin-top:18px;">
+                <label for="deleteKey">Delete Key</label>
+                <div class="inline-form">
+                    <input type="text" id="deleteKey" placeholder="e.g., myKey">
+                    <button onclick="deleteValue()">Delete</button>
+                </div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Operation Result</div>
+            <div id="result"></div>
+        </div>
+    </div>
+    <script>
+        function updateStats(data) {
+            document.getElementById('fsmPending').innerText = data.fsm_pending;
+            document.getElementById('state').innerText = data.state;
+            document.getElementById('term').innerText = data.term;
+            document.getElementById('numPeers').innerText = data.num_peers;
+            document.getElementById('lastLogIndex').innerText = data.last_log_index;
+            document.getElementById('nodeRole').innerText = data.state || '-';
+        }
+        function getStats() {
+            fetch('/api/v1/raft/stat')
+            .then(response => response.json())
+            .then(updateStats)
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        function getMembership() {
+            fetch('/api/v1/raft/stat')
+            .then(response => response.json())
+            .then(data => {
+                if (data.latest_configuration) {
+                    document.getElementById('membershipList').innerText = data.latest_configuration;
+                } else {
+                    document.getElementById('membershipList').innerText = 'No data';
+                }
+                // Update all stats and node info
+                updateStats(data);
+            })
+            .catch(error => {
+                document.getElementById('membershipList').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        function joinNode() {
+            const nodeId = document.getElementById('joinNodeId').value;
+            const raftAddress = document.getElementById('joinRaftAddress').value;
+            fetch('/api/v1/raft/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ NodeID: nodeId, RaftAddress: raftAddress })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<span class="success">' + JSON.stringify(data, null, 2) + '</span>';
+                getStats();
+                getMembership();
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        function dropNode() {
+            const nodeId = document.getElementById('dropNodeId').value;
+            fetch('/api/v1/raft/drop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ NodeID: nodeId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<span class="success">' + JSON.stringify(data, null, 2) + '</span>';
+                getStats();
+                getMembership();
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        function getValue() {
+            const key = document.getElementById('getKey').value;
+            fetch(`/api/v1/kv/${key}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<span class="success">' + JSON.stringify(data, null, 2) + '</span>';
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        function setValue() {
+            const key = document.getElementById('setKey').value;
+            let valueText = document.getElementById('setValue').value;
+            let value;
+            try {
+                value = JSON.parse(valueText);
+            } catch (e) {
+                value = valueText;
+            }
+            fetch(`/api/v1/kv/${key}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(value)
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<span class="success">' + JSON.stringify(data, null, 2) + '</span>';
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        function deleteValue() {
+            const key = document.getElementById('deleteKey').value;
+            fetch(`/api/v1/kv/${key}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = '<span class="success">' + JSON.stringify(data, null, 2) + '</span>';
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = '<span class="error">Error: ' + error + '</span>';
+            });
+        }
+        // Initial load
+        getStats();
+    </script>
+</body>
+</html> 

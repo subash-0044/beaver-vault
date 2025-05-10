@@ -33,7 +33,7 @@ func InitializeServer(cfg *config.Config) (*ServerComponents, error) {
 	}
 
 	// Initialize BadgerDB
-	badgerDir := filepath.Join(cfg.Data.Directory, "badger")
+	badgerDir := filepath.Join(cfg.Data.Directory, cfg.Raft.NodeID, "badger")
 	badgerStore, err := storage.NewBadgerStore(storage.Options{
 		Dir:             badgerDir,
 		CreateIfMissing: true,
@@ -61,7 +61,7 @@ func InitializeServer(cfg *config.Config) (*ServerComponents, error) {
 
 	// Create handler and server
 	h := handler.NewActionHandler(raftNode.GetRaft(), badgerStore.DB)
-	s := server.NewGinServer(h)
+	s := server.NewGinServer(h, raftNode)
 
 	cleanup := func() {
 		if err := raftNode.GetRaft().Shutdown().Error(); err != nil {
