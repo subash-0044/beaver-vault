@@ -8,7 +8,7 @@ import (
 )
 
 type BadgerStore struct {
-	db *badger.DB
+	DB *badger.DB
 }
 
 // NewBadgerStore creates a new BadgerDB storage instance
@@ -27,13 +27,17 @@ func NewBadgerStore(opts Options) (*BadgerStore, error) {
 		return nil, fmt.Errorf("failed to open badger database: %w", err)
 	}
 
-	return &BadgerStore{db: db}, nil
+	return &BadgerStore{DB: db}, nil
 }
 
 // Get retrieves a value for a given key
-func (b *BadgerStore) Get(key []byte) (*Value, error) {
-	var value *Value
-	err := b.db.View(func(txn *badger.Txn) error {
+func (b *BadgerStore) Get(key []byte) ([]byte, error) {
+	if len(key) == 0 {
+		return nil, ErrKeyCannotBeEmpty
+	}
+
+	var value []byte
+	err := b.DB.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
 		if err == badger.ErrKeyNotFound {
 			return nil
@@ -42,10 +46,8 @@ func (b *BadgerStore) Get(key []byte) (*Value, error) {
 			return err
 		}
 
-		return item.Value(func(val []byte) error {
-			value = &Value{Data: val}
-			return nil
-		})
+		value, err = item.ValueCopy(nil)
+		return err
 	})
 
 	if err != nil {
@@ -56,7 +58,11 @@ func (b *BadgerStore) Get(key []byte) (*Value, error) {
 
 // Put stores a value for a given key
 func (b *BadgerStore) Put(key, data []byte) error {
-	err := b.db.Update(func(txn *badger.Txn) error {
+	if len(key) == 0 {
+		return ErrKeyCannotBeEmpty
+	}
+
+	err := b.DB.Update(func(txn *badger.Txn) error {
 		return txn.Set(key, data)
 	})
 
@@ -68,7 +74,11 @@ func (b *BadgerStore) Put(key, data []byte) error {
 
 // Delete removes a key-value pair
 func (b *BadgerStore) Delete(key []byte) error {
-	err := b.db.Update(func(txn *badger.Txn) error {
+	if len(key) == 0 {
+		return ErrKeyCannotBeEmpty
+	}
+
+	err := b.DB.Update(func(txn *badger.Txn) error {
 		return txn.Delete(key)
 	})
 
@@ -78,7 +88,7 @@ func (b *BadgerStore) Delete(key []byte) error {
 	return nil
 }
 
-// Close closes the database
+// Close closes the database connection
 func (b *BadgerStore) Close() error {
-	return b.db.Close()
+	return b.DB.Close()
 }

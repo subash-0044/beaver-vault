@@ -84,7 +84,7 @@ func TestPut(t *testing.T) {
 	t.Run("should fail with empty key", func(t *testing.T) {
 		err := store.Put([]byte{}, []byte("value"))
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Key cannot be empty")
+		assert.Contains(t, err.Error(), "key cannot be empty")
 	})
 
 	t.Run("should handle empty value", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestGet(t *testing.T) {
 		result, err := store.Get(key)
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
-		assert.Equal(t, value, result.Data)
+		assert.Equal(t, value, result)
 	})
 
 	t.Run("should return nil for non-existent key", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestGet(t *testing.T) {
 	t.Run("should fail with empty key", func(t *testing.T) {
 		result, err := store.Get([]byte{})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Key cannot be empty")
+		assert.Contains(t, err.Error(), "key cannot be empty")
 		assert.Nil(t, result)
 	})
 }
@@ -151,6 +151,6 @@ func TestDelete(t *testing.T) {
 	t.Run("should fail with empty key", func(t *testing.T) {
 		err := store.Delete([]byte{})
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "Key cannot be empty")
+		assert.Contains(t, err.Error(), "key cannot be empty")
 	})
 }
