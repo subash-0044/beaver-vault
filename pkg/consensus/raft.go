@@ -15,7 +15,11 @@ func NewRaftObj(raft *raft.Raft) *Raft {
 	}
 }
 
+func (r *Raft) GetRaft() *raft.Raft {
+	return r.raft
+}
+
 // StatsRaftHandler get raft status
-func (r Raft) StatsRaftHandler() (map[string]string, error) {
-	return r.raft.Stats(), nil
+func (r *Raft) StatsRaftHandler() (map[string]string, error) {
+	return r.GetRaft().Stats(), nil
 }

@@ -80,12 +80,12 @@ func TestRaftWithRealNodes(t *testing.T) {
 	// Wait for leader to be elected
 	timeout := time.Now().Add(3 * time.Second)
 	for time.Now().Before(timeout) {
-		if leader.raft.State() == raft.Leader {
+		if leader.GetRaft().State() == raft.Leader {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Equal(t, raft.Leader, leader.raft.State(), "Node1 should become leader")
+	assert.Equal(t, raft.Leader, leader.GetRaft().State(), "Node1 should become leader")
 
 	// Test stats
 	stats, err := leader.StatsRaftHandler()
@@ -109,12 +109,12 @@ func TestRaftWithRealNodes(t *testing.T) {
 	// Wait for follower to be added
 	timeout = time.Now().Add(3 * time.Second)
 	for time.Now().Before(timeout) {
-		if follower.raft.State() == raft.Follower {
+		if follower.GetRaft().State() == raft.Follower {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Equal(t, raft.Follower, follower.raft.State(), "Node2 should become follower")
+	assert.Equal(t, raft.Follower, follower.GetRaft().State(), "Node2 should become follower")
 
 	// Test FSM operations using our CommandPayload format
 	cmd := fsm.CommandPayload{
@@ -126,7 +126,7 @@ func TestRaftWithRealNodes(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Apply the command through leader
-	future := leader.raft.Apply(data, 5*time.Second)
+	future := leader.GetRaft().Apply(data, 5*time.Second)
 	assert.NoError(t, future.Error())
 
 	// Wait for replication
@@ -140,7 +140,7 @@ func TestRaftWithRealNodes(t *testing.T) {
 	data, err = json.Marshal(cmd)
 	assert.NoError(t, err)
 
-	future = leader.raft.Apply(data, 5*time.Second)
+	future = leader.GetRaft().Apply(data, 5*time.Second)
 	assert.NoError(t, future.Error())
 	response := future.Response().(*fsm.ApplyResponse)
 	assert.NoError(t, response.Error)
@@ -154,7 +154,7 @@ func TestRaftWithRealNodes(t *testing.T) {
 	data, err = json.Marshal(cmd)
 	assert.NoError(t, err)
 
-	future = leader.raft.Apply(data, 5*time.Second)
+	future = leader.GetRaft().Apply(data, 5*time.Second)
 	assert.NoError(t, future.Error())
 
 	// Wait for replication
@@ -168,7 +168,7 @@ func TestRaftWithRealNodes(t *testing.T) {
 	data, err = json.Marshal(cmd)
 	assert.NoError(t, err)
 
-	future = leader.raft.Apply(data, 5*time.Second)
+	future = leader.GetRaft().Apply(data, 5*time.Second)
 	assert.NoError(t, future.Error())
 	response = future.Response().(*fsm.ApplyResponse)
 	assert.NoError(t, response.Error)
@@ -185,14 +185,14 @@ func TestRaftWithRealNodes(t *testing.T) {
 	// Verify the node was dropped
 	timeout = time.Now().Add(3 * time.Second)
 	for time.Now().Before(timeout) {
-		cfg := leader.raft.GetConfiguration()
+		cfg := leader.GetRaft().GetConfiguration()
 		if len(cfg.Configuration().Servers) == 1 {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	cfg := leader.raft.GetConfiguration()
+	cfg := leader.GetRaft().GetConfiguration()
 	assert.Equal(t, 1, len(cfg.Configuration().Servers), "Cluster should have only one node after drop")
 }
 
@@ -204,12 +204,12 @@ func TestRaftLeaderDrop(t *testing.T) {
 	// Wait for leader to be elected
 	timeout := time.Now().Add(3 * time.Second)
 	for time.Now().Before(timeout) {
-		if leader.raft.State() == raft.Leader {
+		if leader.GetRaft().State() == raft.Leader {
 			break
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	assert.Equal(t, raft.Leader, leader.raft.State(), "Node1 should become leader")
+	assert.Equal(t, raft.Leader, leader.GetRaft().State(), "Node1 should become leader")
 
 	// Create two follower nodes
 	follower1, follower1Dir, follower1Addr := setupTestRaft(t, "node2")
@@ -238,7 +238,7 @@ func TestRaftLeaderDrop(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Verify cluster size
-	cfg := leader.raft.GetConfiguration()
+	cfg := leader.GetRaft().GetConfiguration()
 	assert.Equal(t, 3, len(cfg.Configuration().Servers), "Cluster should have three nodes")
 
 	// Drop the leader node
@@ -253,19 +253,19 @@ func TestRaftLeaderDrop(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// Verify that one of the followers became leader
-	assert.True(t, follower1.raft.State() == raft.Leader || follower2.raft.State() == raft.Leader,
+	assert.True(t, follower1.GetRaft().State() == raft.Leader || follower2.GetRaft().State() == raft.Leader,
 		"One of the followers should become leader")
 
 	// Get the new leader
 	var newLeader *Raft
-	if follower1.raft.State() == raft.Leader {
+	if follower1.GetRaft().State() == raft.Leader {
 		newLeader = follower1
 	} else {
 		newLeader = follower2
 	}
 
 	// Verify cluster size is now 2
-	cfg = newLeader.raft.GetConfiguration()
+	cfg = newLeader.GetRaft().GetConfiguration()
 	assert.Equal(t, 2, len(cfg.Configuration().Servers), "Cluster should have two nodes after leader removal")
 
 	// Verify the old leader was actually removed
